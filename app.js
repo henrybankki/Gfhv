@@ -1,59 +1,88 @@
 export default {
   async fetch(request, env) {
-
-    // CORS + preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type"
-        }
-      });
+    if (request.method !== "POST") {
+      return new Response("ChickAI API 🐣", { status: 200 });
     }
-
-    let prompt;
 
     try {
       const body = await request.json();
-      prompt = body.prompt;
-    } catch (e) {
-      return new Response("Bad Request", { status: 400 });
-    }
+      const prompt = body.prompt || "";
+      const persona = body.persona || "friendly";
+      const language = body.language || "auto";
 
-    try {
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + env.GEMINI_KEY,
+      // 🛡️ SIMPLE ABUSE FILTER
+      const blocked = [
+        "hack", "exploit", "illegal", "virus", "kill", "weapon"
+      ];
+
+      if (blocked.some(w => prompt.toLowerCase().includes(w))) {
+        return Response.json({
+          reply: "🐣 Sorry, I can't help with that."
+        });
+      }
+
+      // 🧠 PERSONAS
+      const personas = {
+        friendly: "You are ChickAI 🐣. Friendly, helpful, casual.",
+        teacher: "You are ChickAI 🧠. Teach step by step clearly.",
+        meme: "You are ChickAI 😂. Funny, meme-style answers.",
+        dev: "You are ChickAI 💻. Programming expert."
+      };
+
+      const system = personas[persona] || personas.friendly;
+
+      // 🌍 LANGUAGE RULE
+      let langRule = "";
+      if (language === "fi") {
+        langRule = "Answer in Finnish.";
+      } else if (language === "en") {
+        langRule = "Answer in English.";
+      } else {
+        langRule = "Detect user's language and respond in same language.";
+      }
+
+      // 💬 FINAL PROMPT
+      const finalPrompt =
+`${system}
+
+${langRule}
+
+Chat:
+${prompt}
+
+Answer:`;
+
+      // 🔑 GEMINI API (env secret)
+      const apiKey = env.GEMINI_API_KEY;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({
-            contents: [{
-              parts: [{ text: "You are ChickAI. Reply in friendly tone.\nUser: " + prompt }]
-            }]
+            contents: [
+              {
+                parts: [{ text: finalPrompt }]
+              }
+            ]
           })
         }
       );
 
-      const data = await res.json();
+      const data = await response.json();
 
-      const text =
+      const reply =
         data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "No response 🐣";
+        "🐣 No response";
 
-      return new Response(JSON.stringify({ reply: text }), {
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
+      return Response.json({ reply });
 
     } catch (err) {
-      return new Response("Worker error: " + err.message, {
-        status: 500,
-        headers: {
-          "Access-Control-Allow-Origin": "*"
-        }
+      return Response.json({
+        reply: "🐣 Backend error"
       });
     }
   }
