@@ -1,61 +1,30 @@
 export default {
   async fetch(req, env) {
 
-    // CORS preflight
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    };
+
     if (req.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type"
-        }
-      });
+      return new Response(null, { headers: cors });
     }
 
-    // test endpoint
     if (req.method === "GET") {
-      return new Response("ChickAI V5 🐣 OK", {
-        headers: { "Access-Control-Allow-Origin": "*" }
-      });
+      return new Response("ChickAI V6 🐣 OK", { headers: cors });
     }
 
     try {
 
-      const body = await req.json().catch(() => ({}));
-
-      const prompt = body.prompt || "";
-      const persona = body.persona || "friendly";
+      const { prompt, persona } = await req.json().catch(() => ({}));
 
       const personas = {
-
-        friendly: `
-You are ChickAI 🐣
-Be friendly, simple, helpful, and kind.
-Avoid long answers.
-`,
-
-        teacher: `
-You are ChickAI 📚
-You explain everything step-by-step like a teacher.
-Be clear and structured.
-`,
-
-        meme: `
-You are ChickAI 😂
-You are funny, use humor and memes sometimes.
-`,
-
-        dev: `
-You are ChickAI 💻
-You are a senior software engineer.
-Give correct technical answers and examples.
-`,
-
-        strict: `
-You are ChickAI 🧠
-Be logical, precise and minimal.
-No unnecessary text.
-`
+        friendly: "You are a friendly helpful assistant.",
+        teacher: "Explain everything step by step clearly.",
+        meme: "Be funny, use memes and humor.",
+        dev: "You are a senior software engineer.",
+        strict: "Be short, precise and logical."
       };
 
       const system = personas[persona] || personas.friendly;
@@ -63,16 +32,10 @@ No unnecessary text.
       const finalPrompt =
 `${system}
 
-Conversation:
+User:
 ${prompt}
 
 Answer:`;
-
-      if (!env.GEMINI_API_KEY) {
-        return Response.json({
-          reply: "🐣 Missing API key"
-        }, cors());
-      }
 
       const r = await fetch(
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + env.GEMINI_API_KEY,
@@ -80,9 +43,7 @@ Answer:`;
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [
-              { parts: [{ text: finalPrompt }] }
-            ]
+            contents: [{ parts: [{ text: finalPrompt }] }]
           })
         }
       );
@@ -91,32 +52,19 @@ Answer:`;
 
       const reply =
         d?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "🐣 empty response";
+        "🐣 No response";
 
       return Response.json({
         reply,
         persona
-      }, cors());
+      }, { headers: cors });
 
     } catch (e) {
 
       return Response.json({
         reply: "🐣 Backend crash",
         error: String(e)
-      }, cors());
-    }
-  }
-};
-
-/* helper */
-function cors(){
-  return {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Content-Type": "application/json"
-    }
-  };
-}      });
+      }, { headers: cors });
     }
   }
 };
