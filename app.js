@@ -116,46 +116,7 @@ function cors(){
       "Content-Type": "application/json"
     }
   };
-}
-      const r=await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+apiKey,
-        {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            contents:[{parts:[{text:finalPrompt}]}]
-          })
-        }
-      );
-
-      const d=await r.json();
-
-      return Response.json({
-        reply:d?.candidates?.[0]?.content?.parts?.[0]?.text || "🐣"
-      });
-
-    }catch(e){
-      return Response.json({reply:"Backend error 🐣"});
-    }
-  }
-};              }
-            ]
-          })
-        }
-      );
-
-      const data = await response.json();
-
-      const reply =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "🐣 No response";
-
-      return Response.json({ reply });
-
-    } catch (err) {
-      return Response.json({
-        reply: "🐣 Backend error"
-      });
+}      });
     }
   }
 };
