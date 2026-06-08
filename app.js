@@ -1,72 +1,62 @@
 export default {
-  async fetch(request, env) {
-    if (request.method !== "POST") {
-      return new Response("ChickAI API 🐣", { status: 200 });
+  async fetch(req, env) {
+    if(req.method !== "POST"){
+      return new Response("ChickAI V3 🐣");
     }
 
-    try {
-      const body = await request.json();
+    try{
+      const body = await req.json();
+
       const prompt = body.prompt || "";
       const persona = body.persona || "friendly";
-      const language = body.language || "auto";
 
-      // 🛡️ SIMPLE ABUSE FILTER
-      const blocked = [
-        "hack", "exploit", "illegal", "virus", "kill", "weapon"
-      ];
+      /* 🛡️ PROMPT INJECTION FILTER */
+      const blocked = ["ignore instructions", "system prompt", "reveal api"];
 
-      if (blocked.some(w => prompt.toLowerCase().includes(w))) {
-        return Response.json({
-          reply: "🐣 Sorry, I can't help with that."
-        });
+      if(blocked.some(w=>prompt.toLowerCase().includes(w))){
+        return Response.json({reply:"🐣 Request blocked."});
       }
 
-      // 🧠 PERSONAS
-      const personas = {
-        friendly: "You are ChickAI 🐣. Friendly, helpful, casual.",
-        teacher: "You are ChickAI 🧠. Teach step by step clearly.",
-        meme: "You are ChickAI 😂. Funny, meme-style answers.",
-        dev: "You are ChickAI 💻. Programming expert."
-      };
+      const system={
+        friendly:"Friendly assistant",
+        teacher:"Teaching assistant",
+        meme:"Funny meme assistant",
+        dev:"Programming assistant"
+      }[persona] || "Friendly assistant";
 
-      const system = personas[persona] || personas.friendly;
-
-      // 🌍 LANGUAGE RULE
-      let langRule = "";
-      if (language === "fi") {
-        langRule = "Answer in Finnish.";
-      } else if (language === "en") {
-        langRule = "Answer in English.";
-      } else {
-        langRule = "Detect user's language and respond in same language.";
-      }
-
-      // 💬 FINAL PROMPT
       const finalPrompt =
-`${system}
+`You are ChickAI 🐣
+${system}
 
-${langRule}
-
-Chat:
+Conversation:
 ${prompt}
 
 Answer:`;
 
-      // 🔑 GEMINI API (env secret)
-      const apiKey = env.GEMINI_API_KEY;
+      const apiKey=env.GEMINI_API_KEY;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      const r=await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="+apiKey,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: finalPrompt }]
-              }
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            contents:[{parts:[{text:finalPrompt}]}]
+          })
+        }
+      );
+
+      const d=await r.json();
+
+      return Response.json({
+        reply:d?.candidates?.[0]?.content?.parts?.[0]?.text || "🐣"
+      });
+
+    }catch(e){
+      return Response.json({reply:"Backend error 🐣"});
+    }
+  }
+};              }
             ]
           })
         }
