@@ -1,40 +1,263 @@
 export default {
+
   async fetch(req, env) {
 
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
-    };
+    /* =========================
+       CORS
+    ========================= */
 
-    // Preflight
     if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+
+      return new Response(null, {
+        headers: corsHeaders()
+      });
+
     }
 
-    // Health check
+    /* =========================
+       TEST ENDPOINT
+    ========================= */
+
     if (req.method === "GET") {
-      return new Response("ChickAI V6 🐣 Gemini 2.5 Flash OK", {
-        headers: corsHeaders
-      });
+
+      return new Response(
+        "🐣 ChickAI Backend Online",
+        {
+          headers: corsHeaders()
+        }
+      );
+
     }
 
     try {
 
-      const body = await req.json().catch(() => ({}));
+      /* =========================
+         REQUEST
+      ========================= */
 
-      const prompt = body.prompt || "";
-      const persona = body.persona || "friendly";
+      const body =
+      await req.json();
 
-      // 🧠 Personas (backend controlled)
+      const persona =
+      body.persona ||
+      "friendly";
+
+      const messages =
+      body.messages ||
+      [];
+
+      /* =========================
+         PERSONAS
+      ========================= */
+
       const personas = {
-        friendly: "You are ChickAI 🐣. Be friendly, simple and helpful.",
-        teacher: "You are ChickAI 📚. Explain things step-by-step like a teacher.",
-        meme: "You are ChickAI 😂. Be funny, use memes and humor.",
-        dev: "You are ChickAI 💻. You are a senior software engineer.",
-        strict: "You are ChickAI 🧠. Be precise, logical and minimal."
+
+        friendly: `
+You are ChickAI 🐣
+
+You are friendly, helpful and positive.
+
+Keep answers clear.
+`,
+
+        teacher: `
+You are ChickAI 📚
+
+Explain things step-by-step.
+
+Teach clearly.
+`,
+
+        dev: `
+You are ChickAI 💻
+
+You are an experienced software engineer.
+
+Provide technical answers.
+`,
+
+        strict: `
+You are ChickAI 🧠
+
+Be concise and logical.
+
+Avoid unnecessary words.
+`,
+
+        meme: `
+You are ChickAI 😂
+
+Be funny and playful.
+
+Use light humor.
+`
+
       };
 
+      const systemPrompt =
+      personas[persona]
+      ||
+      personas.friendly;
+
+      /* =========================
+         CONVERSATION
+      ========================= */
+
+      let prompt =
+      systemPrompt +
+      "\n\nConversation:\n";
+
+      for (const msg of messages) {
+
+        if (
+          msg.role === "user"
+        ) {
+
+          prompt +=
+          "User: " +
+          msg.content +
+          "\n";
+
+        }
+
+        if (
+          msg.role ===
+          "assistant"
+        ) {
+
+          prompt +=
+          "Assistant: " +
+          msg.content +
+          "\n";
+
+        }
+
+      }
+
+      prompt +=
+      "\nAssistant:";
+
+      /* =========================
+         GEMINI
+      ========================= */
+
+      const response =
+      await fetch(
+
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="
+        +
+        env.GEMINI_API_KEY,
+
+        {
+
+          method:"POST",
+
+          headers:{
+            "Content-Type":
+            "application/json"
+          },
+
+          body:
+          JSON.stringify({
+
+            contents:[
+
+              {
+                parts:[
+                  {
+                    text:prompt
+                  }
+                ]
+              }
+
+            ]
+
+          })
+
+        }
+
+      );
+
+      const data =
+      await response.json();
+
+      const reply =
+
+      data?.candidates?.[0]
+      ?.content?.parts?.[0]
+      ?.text
+
+      ||
+
+      "🐣 No response";
+
+      return Response.json(
+
+        {
+          reply
+        },
+
+        {
+          headers:
+          corsHeaders()
+        }
+
+      );
+
+    }
+
+    catch(err){
+
+      return Response.json(
+
+        {
+
+          reply:
+          "🐣 Backend error",
+
+          error:
+          String(err)
+
+        },
+
+        {
+
+          headers:
+          corsHeaders()
+
+        }
+
+      );
+
+    }
+
+  }
+
+};
+
+/* =========================
+   CORS HEADERS
+========================= */
+
+function corsHeaders(){
+
+  return {
+
+    "Access-Control-Allow-Origin":
+    "*",
+
+    "Access-Control-Allow-Methods":
+    "GET, POST, OPTIONS",
+
+    "Access-Control-Allow-Headers":
+    "Content-Type",
+
+    "Content-Type":
+    "application/json"
+
+  };
+
+}
       const system = personas[persona] || personas.friendly;
 
       const finalPrompt =
